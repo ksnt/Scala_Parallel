@@ -1,1 +1,2 @@
-# Scala_Parallel
+# Scala Parallel
+Notes on a course
