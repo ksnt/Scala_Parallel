@@ -4,6 +4,8 @@
 //* Running Computations in Parallel *//
 // NOTE: Psuedo codes are inculded
 
+import common._
+
 //　1.Recursive calculation for p-norm
 def pNormRec(a:Array[Int], p: Double): Int =
   power(segmentRec(a,p,0,a.length),1/p)
