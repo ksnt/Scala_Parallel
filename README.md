@@ -1,2 +1,2 @@
 # Scala Parallel
-Notes on a course
+Notes of a course on Parallel Programming in Scala
