@@ -2,9 +2,12 @@
 /* ksnt  */
 
 //* Data-Parallelism *//
-// NOTE: Psuedo codes are inculded
+// NOTE: Psuedo codes might be inculded
 
 //　1.Data-Parallel Programming
+
+// task-parallell programming: A form of parallelization that distributes execution processes across computing nodes
+
 
 
 // 2. Data-Parallel Operations-1
