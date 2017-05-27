@@ -171,7 +171,7 @@ Often we work with collections that we only know the ordering and not the tree s
 
 Because of associativity we can choose any tree that preserves the order of elements of the original collection
 
-*?
+*/
 
 
 // 4.Associativity-1
