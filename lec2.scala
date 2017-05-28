@@ -192,8 +192,179 @@ Operation f: (A,A) => A is commutative iff for every x,y:
 
 */
 
+//array norm
+reduce(map(a,power(abs(_),p)), _ + _)
 
 
 // 5.Associativity-2
 
+// average
+val sum = reduce(collection, _ + _)
+val length = reduce(map(collection, (x:Int) => 1), _ + _)
+sum/length
+
+//average(2)
+// f((sum1,len1),(sum2,len2)) = (sum1 + sum2, len1 + len2)
+val (sum,length) = reduce(map(collection,(x:Int) => (x,1)), f)
+sum/length
+
+// test associativity
+def f(u: Double, v: Double): Double =
+  (u + v)/(1.0 + u*v)
+def err(lst:List[Double]): Double =
+  lst.reduceLeft(f) - lst.reduceRight(f)
+def testAssoc: Double = {
+  val r = new scala.util.Random
+  val lst = List.fill(400)(r.nextDouble*0.002)
+  err(lst)  
+}
+
+
+
 // 6.Parallel Scan (Prefix Sum) Operation
+
+//scanLeft
+List(1,3,8).scanLeft(100)((s,x) => s + x)
+//res6: List[Int] = List(100, 101, 104, 112)
+List(1,3,8).scanRight(100)((s,x) => s + x)
+//res7: List[Int] = List(112, 111, 108, 100)
+
+
+def reduceSeg1[A](inp: Array[A], left: Int, right: Int, a0: Int, f: (A,A) => A): A
+def mapSeg[A,B](inp: Array[A], left: Int, right: Int,
+                fi : (Int,A) => B,
+                out: Array[B]): Unit
+
+// Tree difinition
+sealed abstract class Tree[A]
+case class Leaf[A](a: A) extends Tree[A]
+case class Node[A](l: Tree[A], r: Tree[A]) extends Tree[A]
+
+// Tree sorting intermediate values
+sealed abstaract class TreeRes[A{ val res: A}
+case class LeafRes[A](override val res: A) extends TreeRes[A]
+case class NodeRes[A](l: TreeRes[A], 
+                      override val res: A,
+                      r: TreeRes[A]) extends TreeRes[A]
+
+// reduce that preserves the computation tree
+def reduceRes[A](t : Tree[A], f:(A,A) => A): TreeRes[A] = t match {
+  case Leaf(v) => LeafRes(v)
+  case Node(l,r) => {
+    val (tL,tR) = (reduceRes(l,f),reduceRes(r,f))
+    NodeRes(tL, f(tL.res, tR.res), tR)
+    }
+}
+
+val t1 = Node(Node(Leaf(1), Leaf(3)), Node(Leaf(8), Leaf(50)))
+val plus = (x:Int, y:Int) => x+y
+
+//reduceRes(t1,plus)
+//res14: TreeRes[Int] = NodeRes(NodeRes(LeafRes(1),4,LeafRes(3)),62,NodeRes(LeafRes(8),58,LeafRes(50)))
+
+
+
+def upsweep[A](t: Tree[A], f: (A,A) => A): TreeRes[A] = t match {
+  case Leaf(v) => LeafRes(v)
+  case Node(l,r) => {
+    val (tL, tR) = parallel(upsweep(l,f),upsweep(r,f))
+    NodeRes(tL,f(tL.res,tR.res), tR)
+  }
+  }
+
+
+sealed abstract class TreeRes[A]{val res : A}
+case class LeafRes[A](override val res: A) extends TreeRes[A]
+case class NodeRes[A](l: TreeRes[A],
+                      override val res: A,
+                      r: TreeRes[A]) extends TreeRes[A]
+
+// a0 is reduce of all elements left of the tree 't'
+def downsweep[A](t: TreeRes[A], a0: A, f: (A,A) => A): Tree[A] = t match{
+  case LeafRes(a) => Leaf(f(a0,a))
+  case NodeRes(l,_,r) => {
+    val (tL,tR) = parallel(downsweep[A](l,a0,f),
+                           downsweep[A](r,f(a0,l.res),f))
+  Node(tL,tR)}
+}
+
+
+//scala> downsweep(res0,100,plus)
+//res21: Tree[Int] = Node(Node(Leaf(101),Leaf(104)),Node(Leaf(112),Leaf(162)))
+
+def scanLeft[A(t:Tree[A], a0: A, f: (A,A) => A): Tree[A] = {
+  val tRes = upsweep(t,f)
+  val scan1 = downsweep(tRes,a0,f)
+  prepend(a0,scan1)
+}
+
+
+def prepend[A](x:A, t: Tree[A]): Tree[A] = t match{
+  case Leaf(v) => Node(Leaf(x),Leaf(v))
+  case Node(l,r) => Node(prepend(x,l),r)
+}
+
+
+// Intermediate tree for array reduce
+
+sealed abstract class TreeResA[A]{val res : A}
+case class Leaf[A](from: Int, to: Int, override val res: A) extends TreeResA[A]
+case class Node[A](l: TreeResA[A],
+                      override val res: A,
+                      r: TreeResA[A]) extends TreeResA[A]
+                      
+// upsweep on array
+
+def reduceSeg1[A](inp: Array[A], left: Int, right: Int, a0: A, f: (A,A) => A): A = {
+  var a= a0
+  var i= left
+  while (i < right) {
+    a= f(a, inp(i))
+    i= i+1
+  }
+  a
+}
+
+val threshold = 100
+
+def upsweep[A](inp: Array[A], from: Int, to: Int,
+               f: (A,A) => A): TreeResA[A] = {
+  if (to - from < threshold)
+    Leaf(from, to, reduceSeg1(inp, from + 1, to, inp(from), f))
+  else {
+    val mid = from + (to - from)/2
+    val (tL,tR) = parallel(upsweep(inp, from, mid, f),
+                           upsweep(inp, mid, to, f))
+    Node(tL, f(tL.res,tR.res), tR)
+  }
+}
+
+
+def scanLeftSeg[A](inp: Array[A], left: Int, right: Int,a0: A, f: (A,A) => A, out: Array[A]) = {
+  if (left < right) {
+    var i= left
+    var a= a0
+    while (i < right) {
+      a= f(a,inp(i))
+      i= i+1
+      out(i)=a
+    }
+  }
+}
+
+def downsweep[A](inp: Array[A], a0: A, f: (A,A) => A, t: TreeResA[A],out: Array[A]): Unit = t match {
+  case Leaf(from, to, res) => scanLeftSeg(inp, from, to, a0, f, out)
+  case Node(l, _, r) => {
+  val (_,_) = parallel(
+  downsweep(inp, a0, f, l, out),
+  downsweep(inp, f(a0,l.res), f, r, out))
+  }
+}
+
+def scanLeft[A](inp: Array[A], a0: A, f: (A,A) => A, out: Array[A]) = {
+  val t = upsweep(inp, 0, inp.length, f)
+  downsweep(inp, a0, f, t, out) // fills out[1..inp.length]
+  out(0)= a0 // prepends a0
+}
+
+
