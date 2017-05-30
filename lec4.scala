@@ -57,8 +57,38 @@ class ArrayCombiner[T <: AnyRef: ClassTag](val parallelism: Int){
 
 // 3.Conc-tree Data Structure
 
+sealed trait Tree[+T]
+
+case class Node[T](left: Tree[T], right: Tree[T]) extends Tree[T]
+case class Leaf[T](elem: T) extends Tree[T]
+case object Empty extends Tree[Nothing]
+
+//Filter on Trees
+def fliter[T](t: Tree[T])(p: T => Boolean): Tree[T] = t match {
+	case Node(left,right) => Node(parallel(filter(left)(p), filter(right)(p)))
+	case Leaf(elem) => if (p(elem)) t else Empty
+	case Empty => Empty
+}
+
+//Remark: Treesa are not good for parallelism unless they are balanced
+
+// Conc: a data type for balanced trees
+import scala.annotation.tailrec
+
+sealed trait Conc[+T]{
+	def level: Int
+	def size: Int
+	def left: Conc[T]
+	def right: Conc[T]
+}
 
 // 4.Amortized, Constant-time Append Operation
+
+var xs: Conc[T] = Empty
+def +=(elem: T){
+	xs = xs <> Single(elem)
+}
+
 
 // 5.Conc-Tree Combiners
 
